@@ -289,14 +289,21 @@ public final class NioDatagramChannel
             return true;
         }
 
-        final ByteBuffer nioData = data.nioBufferCount() == 1 ? data.internalNioBuffer(data.readerIndex(), dataLen)
-                                                              : data.nioBuffer(data.readerIndex(), dataLen);
-        final int writtenBytes;
+        final long writtenBytes;
         if (remoteAddress != null) {
+            ByteBuffer nioData = data.nioBufferCount() == 1 ? data.internalNioBuffer(data.readerIndex(), dataLen)
+                    : data.nioBuffer(data.readerIndex(), dataLen);
             writtenBytes = javaChannel().send(nioData, remoteAddress);
         } else {
-            writtenBytes = javaChannel().write(nioData);
+            if (data.nioBufferCount() == 1) {
+                ByteBuffer nioData = data.internalNioBuffer(data.readerIndex(), dataLen);
+                writtenBytes = javaChannel().write(nioData);
+            } else {
+                ByteBuffer[] nioDatas = data.nioBuffers(data.readerIndex(), dataLen);
+                writtenBytes = javaChannel().write(nioDatas);
+            }
         }
+
         return writtenBytes > 0;
     }
 
@@ -340,7 +347,7 @@ public final class NioDatagramChannel
      * (We check this because otherwise we need to make it a non-composite buffer.)
      */
     private static boolean isSingleDirectBuffer(ByteBuf buf) {
-        return buf.isDirect() && buf.nioBufferCount() == 1;
+        return buf.isDirect();
     }
 
     @Override
